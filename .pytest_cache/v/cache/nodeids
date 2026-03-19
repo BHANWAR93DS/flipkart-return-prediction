@@ -1,0 +1,15 @@
+[
+  "tests/test_api.py::test_health_response_schema",
+  "tests/test_api.py::test_prediction_request_schema",
+  "tests/test_api.py::test_schemas_import",
+  "tests/test_data_ingestion.py::test_config_loads",
+  "tests/test_data_ingestion.py::test_models_folder_exists",
+  "tests/test_data_ingestion.py::test_numerical_features_defined",
+  "tests/test_data_ingestion.py::test_required_files_exist",
+  "tests/test_data_ingestion.py::test_target_column_in_config",
+  "tests/test_data_preprocessing.py::test_dataframe_creation",
+  "tests/test_data_preprocessing.py::test_effective_price_calculation",
+  "tests/test_data_preprocessing.py::test_no_null_values",
+  "tests/test_data_preprocessing.py::test_return_rate_calculation",
+  "tests/test_data_preprocessing.py::test_target_column_binary"
+]

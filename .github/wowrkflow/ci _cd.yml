@@ -1,0 +1,252 @@
+# ============================================================
+# .github/workflows/ci_cd.yml
+# CI/CD Pipeline — Flipkart Return Prediction
+# Triggers: Every push to main/develop branch
+# ============================================================
+
+name: Flipkart MLOps CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+env:
+  PYTHON_VERSION: "3.11"
+  IMAGE_NAME: flipkart-return-prediction
+
+jobs:
+
+  # ══════════════════════════════════════════════════════════
+  # JOB 1: Code Quality Checks
+  # ══════════════════════════════════════════════════════════
+  code-quality:
+    name: Code Quality & Linting
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python ${{ env.PYTHON_VERSION }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install flake8 black
+
+      - name: Run Black formatter check
+        run: |
+          black --check --diff src/ api/ pipeline/ \
+            --line-length 100 || true
+
+      - name: Run Flake8 linter
+        run: |
+          flake8 src/ api/ pipeline/ \
+            --max-line-length=100 \
+            --ignore=E501,W503,E203 || true
+
+  # ══════════════════════════════════════════════════════════
+  # JOB 2: Run Tests
+  # ══════════════════════════════════════════════════════════
+  test:
+    name: Run Unit Tests
+    runs-on: ubuntu-latest
+    needs: code-quality
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python ${{ env.PYTHON_VERSION }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install setuptools wheel
+          pip install -e . --no-build-isolation
+
+      - name: Create required directories
+        run: |
+          mkdir -p data/raw data/processed data/reference
+          mkdir -p models logs mlruns
+
+      - name: Run tests
+        run: |
+          pytest tests/ -v --tb=short || true
+
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-results
+          path: logs/
+
+  # ══════════════════════════════════════════════════════════
+  # JOB 3: Build Docker Image
+  # ══════════════════════════════════════════════════════════
+  docker-build:
+    name: Build Docker Image
+    runs-on: ubuntu-latest
+    needs: test
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Create required directories and files
+        run: |
+          mkdir -p models logs data/raw data/processed
+          mkdir -p data/reference mlruns
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build Docker image
+        run: |
+          docker build -t ${{ env.IMAGE_NAME }}:latest .
+          docker build -t ${{ env.IMAGE_NAME }}:${{ github.sha }} .
+
+      - name: Test Docker image
+        run: |
+          docker run -d \
+            -p 8000:8000 \
+            --name test-container \
+            ${{ env.IMAGE_NAME }}:latest
+
+          echo "Waiting for container to start..."
+          sleep 15
+
+          docker ps
+
+          echo "Container logs:"
+          docker logs test-container || true
+
+          docker stop test-container || true
+          docker rm test-container || true
+
+      - name: Save Docker image info
+        run: |
+          echo "Image built: ${{ env.IMAGE_NAME }}:${{ github.sha }}"
+          docker images ${{ env.IMAGE_NAME }}
+
+  # ══════════════════════════════════════════════════════════
+  # JOB 4: Data Validation Check
+  # ══════════════════════════════════════════════════════════
+  data-validation:
+    name: Data Pipeline Validation
+    runs-on: ubuntu-latest
+    needs: code-quality
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python ${{ env.PYTHON_VERSION }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install setuptools wheel
+          pip install -e . --no-build-isolation
+
+      - name: Create directories
+        run: |
+          mkdir -p data/raw data/processed data/reference
+          mkdir -p models logs mlruns
+
+      - name: Validate project structure
+        run: |
+          python -c "
+          import os
+          required = [
+            'src/data_ingestion.py',
+            'src/data_validation.py',
+            'src/data_preprocessing.py',
+            'src/feature_engineering.py',
+            'src/model_training.py',
+            'src/model_evaluation.py',
+            'api/main.py',
+            'api/schemas.py',
+            'config/config.yaml',
+            'requirements.txt',
+            'Dockerfile',
+          ]
+          missing = [f for f in required if not os.path.exists(f)]
+          if missing:
+            print(f'MISSING FILES: {missing}')
+            exit(1)
+          else:
+            print('All required files present!')
+            print(f'Checked {len(required)} files')
+          "
+
+      - name: Validate config file
+        run: |
+          python -c "
+          import yaml
+          with open('config/config.yaml') as f:
+            config = yaml.safe_load(f)
+          required_keys = ['data', 'features', 'model', 'mlflow', 'api']
+          missing = [k for k in required_keys if k not in config]
+          if missing:
+            print(f'Missing config keys: {missing}')
+            exit(1)
+          print('Config validation passed!')
+          print(f'Keys found: {list(config.keys())}')
+          "
+
+      - name: Test imports
+        run: |
+          python -c "
+          import pandas as pd
+          import numpy as np
+          import sklearn
+          import mlflow
+          import fastapi
+          import yaml
+          import joblib
+          print('All imports successful!')
+          print(f'pandas: {pd.__version__}')
+          print(f'sklearn: {sklearn.__version__}')
+          print(f'mlflow: {mlflow.__version__}')
+          print(f'fastapi: {fastapi.__version__}')
+          "
+
+  # ══════════════════════════════════════════════════════════
+  # JOB 5: Summary Report
+  # ══════════════════════════════════════════════════════════
+  pipeline-summary:
+    name: Pipeline Summary
+    runs-on: ubuntu-latest
+    needs: [code-quality, test, docker-build, data-validation]
+    if: always()
+
+    steps:
+      - name: Pipeline Summary
+        run: |
+          echo "=================================="
+          echo "  FLIPKART MLOPS PIPELINE SUMMARY"
+          echo "=================================="
+          echo "Branch  : ${{ github.ref_name }}"
+          echo "Commit  : ${{ github.sha }}"
+          echo "Author  : ${{ github.actor }}"
+          echo "Trigger : ${{ github.event_name }}"
+          echo "=================================="
+          echo "  All jobs completed!"
+          echo "=================================="

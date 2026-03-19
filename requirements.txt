@@ -1,0 +1,22 @@
+# Core ML
+pandas
+numpy
+scikit-learn
+imbalanced-learn
+joblib
+
+# MLflow
+mlflow
+
+# API
+fastapi
+uvicorn
+pydantic
+
+# Utilities
+pyyaml
+python-dotenv
+
+# Testing
+pytest
+httpx

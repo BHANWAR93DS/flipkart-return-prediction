@@ -1,0 +1,93 @@
+# ============================================================
+# FLIPKART RETURN PREDICTION - CENTRAL CONFIGURATION FILE
+# ============================================================
+
+project:
+  name: "flipkart-return-prediction"
+  version: "1.0.0"
+  author: "Your Name"
+
+# ── Data Paths ───────────────────────────────────────────────
+data:
+  raw_data_path: "c:\\Users\\Bhanw\\Downloads\\Flipkart_Product_Returns.csv"
+  processed_data_path: "data/processed/processed_data.csv"
+  reference_data_path: "data/reference/reference_data.csv"
+  test_size: 0.2
+  random_state: 42
+
+# ── Feature Configuration ────────────────────────────────────
+features:
+  target_column: "Return_Risk"
+
+  numerical_features:
+    - "ProductPrice"
+    - "CustomerAge"
+    - "Quantity"
+    - "DiscountApplied"
+    - "CustomerPurchaseHistory"
+    - "CustomerReturnHistory"
+    - "ProductRating"
+
+  categorical_features:
+    - "Category"
+    - "PaymentMethod"
+    - "ShippingMode"
+    - "Product_Warranty"
+    - "CustomerGender"
+
+  drop_columns:
+    - "Unnamed: 0"  
+    - "OrderID"
+    - "OrderDate"
+    - "OrderTime"
+    - "DeliveryDate"
+    - "DeliveryTime"
+    - "ReturnDate"
+    - "ReturnTime"
+    - "ReturnReason"
+    - "Product_Name"
+    - "Company"
+    - "City"
+    - "State"
+
+# ── Model Configuration ──────────────────────────────────────
+model:
+  algorithm: "RandomForestClassifier"
+  hyperparameters:
+    n_estimators: 100
+    max_depth: 10
+    min_samples_split: 5
+    min_samples_leaf: 2
+    random_state: 42
+    class_weight: "balanced"
+
+  evaluation:
+    min_accuracy: 0.75
+    min_f1_score: 0.70
+    min_roc_auc: 0.78
+
+# ── MLflow Configuration ─────────────────────────────────────
+mlflow:
+  experiment_name: "flipkart-return-prediction"
+  tracking_uri: "mlruns"
+  registered_model_name: "FlipkartReturnPredictor"
+  model_artifact_path: "flipkart_model"
+
+# ── API Configuration ────────────────────────────────────────
+api:
+  host: "0.0.0.0"
+  port: 8000
+  title: "Flipkart Return Prediction API"
+  version: "1.0.0"
+
+# ── Monitoring Configuration ─────────────────────────────────
+monitoring:
+  drift_report_path: "logs/drift_report.html"
+  prediction_drift_threshold: 0.15
+  data_drift_threshold: 0.10
+
+# ── Logging Configuration ────────────────────────────────────
+logging:
+  log_file: "logs/pipeline.log"
+  log_level: "INFO"
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"

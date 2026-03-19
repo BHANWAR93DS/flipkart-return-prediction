@@ -1,0 +1,97 @@
+# ============================================================
+# docker-compose.yml
+# Run API + MLflow together with one command
+# ============================================================
+
+version: '3.8'
+
+services:
+
+  # ── FastAPI Prediction Service ──────────────────────────
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: flipkart-api
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./models:/app/models      # Model files
+      - ./logs:/app/logs          # Log files
+      - ./data:/app/data          # Data files
+      - ./mlruns:/app/mlruns      # MLflow runs
+    environment:
+      - PYTHONPATH=/app
+      - PYTHONUNBUFFERED=1
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c",
+             "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+  # ── MLflow Tracking Server ───────────────────────────────
+  mlflow:
+    image: python:3.11-slim
+    container_name: flipkart-mlflow
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./mlruns:/mlruns
+    command: >
+      bash -c "pip install mlflow -q &&
+               mlflow server
+               --host 0.0.0.0
+               --port 5000
+               --backend-store-uri /mlruns"
+    restart: unless-stopped
+```
+
+---
+
+## 💻 Step 9.3 — `.dockerignore`
+
+Root folder mein `.dockerignore` file **banao** (new file):
+```
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+
+# Virtual environment
+venv/
+env/
+.env
+
+# Data files (large — mount as volume instead)
+data/raw/
+data/processed/
+
+# Notebooks
+notebooks/
+
+# Tests
+tests/
+
+# Git
+.git/
+.gitignore
+
+# IDE
+.vscode/
+.idea/
+
+# Logs
+logs/
+*.log
+
+# OS
+.DS_Store
+Thumbs.db

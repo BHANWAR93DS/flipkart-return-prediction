@@ -1,0 +1,29 @@
+# Python
+__pycache__/
+*.py[cod]
+venv/
+*.egg-info/
+
+# Data
+data/raw/
+data/processed/
+
+# Models
+models/*.pkl
+
+# Logs
+logs/
+
+# MLflow
+mlruns/
+
+# Environment
+.env
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
